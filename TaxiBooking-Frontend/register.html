@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CabZila &mdash; Create Account</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { gold: { DEFAULT: '#c9a96e', soft: '#b8975a' } }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background: #0a0a0a; color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+        /* Ambient Glow */
+        .ambient::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background: radial-gradient(40rem 40rem at 50% 10%, rgba(201,169,110,0.08), transparent 60%);
+        }
+
+        /* Glass Card */
+        .glass {
+            background: rgba(255,255,255,0.03); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        /* Inputs */
+        .field label { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 6px; letter-spacing: 1px; }
+        .input-control {
+            width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 12px 16px; color: white; outline: none; transition: all 0.3s ease;
+        }
+        .input-control:focus { border-color: #c9a96e; background: rgba(255,255,255,0.07); }
+
+        /* Role Selection Radios */
+        .role-radio:checked + div { border-color: #c9a96e; background: rgba(201,169,110,0.1); color: #c9a96e; }
+    </style>
+</head>
+<body class="ambient antialiased p-4">
+
+<div class="glass max-w-md w-full p-8 rounded-2xl relative overflow-hidden">
+    <!-- Top Accent Line -->
+    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-50"></div>
+
+    <div class="text-center mb-8 pt-2">
+      <span class="w-12 h-12 rounded-xl mx-auto flex items-center justify-center border border-gold/30 bg-gold/10 mb-4">
+        <i class="fa-solid fa-user-plus text-xl text-gold"></i>
+      </span>
+        <h1 class="text-2xl font-bold tracking-tight">Join <span class="text-gold">CabZila</span></h1>
+        <p class="text-sm text-white/50 mt-1">Create your account to get started</p>
+    </div>
+
+    <form id="registerForm" class="space-y-5">
+
+        <!-- Role Selection -->
+        <div class="field">
+            <label>I want to register as</label>
+            <div class="grid grid-cols-2 gap-4 mt-2">
+                <label class="cursor-pointer">
+                    <input type="radio" name="role" value="PASSENGER" class="role-radio hidden" checked onchange="toggleDriverFields()">
+                    <div class="text-center p-3 rounded-xl border border-white/10 text-white/60 transition-all duration-300 flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-user text-lg"></i>
+                        <span class="text-sm font-medium">Passenger</span>
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="role" value="DRIVER" class="role-radio hidden" onchange="toggleDriverFields()">
+                    <div class="text-center p-3 rounded-xl border border-white/10 text-white/60 transition-all duration-300 flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-dharmachakra text-lg"></i>
+                        <span class="text-sm font-medium">Driver</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="name" class="input-control" placeholder="Enter your full name" required>
+        </div>
+
+        <div class="field">
+            <label>Email Address</label>
+            <input type="email" id="email" class="input-control" placeholder="name@example.com" required>
+        </div>
+
+        <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" class="input-control" placeholder="Create a strong password" required>
+        </div>
+
+        <!-- Driver Specific Fields (Hidden initially) -->
+        <div id="driverFields" class="hidden space-y-5 pt-3 border-t border-white/10">
+            <div class="field">
+                <label>Vehicle Type</label>
+                <select id="vehicleType" class="input-control text-white/90">
+                    <option value="SEDAN" class="text-black">Sedan</option>
+                    <option value="SUV" class="text-black">SUV</option>
+                    <option value="AUTO" class="text-black">Auto Rickshaw</option>
+                    <option value="BIKE" class="text-black">Bike</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Vehicle Registration Number</label>
+                <input type="text" id="vehicleNumber" class="input-control" placeholder="e.g. DL 1C AB 1234">
+            </div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full font-semibold py-3.5 rounded-xl mt-4 transition-all duration-300 hover:-translate-y-1" style="background:#c9a96e; color:#0a0a0a; box-shadow: 0 10px 20px -10px rgba(201,169,110,0.5);">
+            Create Account
+        </button>
+
+        <p class="text-center text-sm text-white/40 mt-6">
+            Already have an account? <a href="login.html" class="text-gold hover:text-white transition-colors">Sign in</a>
+        </p>
+    </form>
+</div>
+
+<script>
+    // 1. Driver ke fields show/hide karne ka logic
+    function toggleDriverFields() {
+        const role = document.querySelector('input[name="role"]:checked').value;
+        const driverFields = document.getElementById('driverFields');
+        const vehicleNumInput = document.getElementById('vehicleNumber');
+
+        if (role === 'DRIVER') {
+            driverFields.classList.remove('hidden');
+            vehicleNumInput.setAttribute('required', 'true');
+        } else {
+            driverFields.classList.add('hidden');
+            vehicleNumInput.removeAttribute('required');
+        }
+    }
+
+    // 2. Form Submit hone par Backend ko data bhejne ka logic
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.innerText = "Registering...";
+        submitBtn.disabled = true;
+
+        // Form se saari values nikalna
+        const role = document.querySelector('input[name="role"]:checked').value;
+        const userData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            role: role
+        };
+
+        // Agar Driver hai, toh gaadi ki details bhi object me add karo
+        if (role === 'DRIVER') {
+            userData.vehicleType = document.getElementById('vehicleType').value;
+            userData.vehicleNumber = document.getElementById('vehicleNumber').value;
+        }
+
+        try {
+            // YAHAN AAPKE SPRING BOOT BACKEND KA URL AAYEGA
+            // Example: http://localhost:8080/api/users/register
+            const response = await fetch('http://localhost:8080/api/users/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            });
+
+            if (response.ok) {
+                alert("Registration Successful! Now you can login.");
+                window.location.href = "login.html";
+            } else {
+                const errorMsg = await response.text();
+                alert("Registration Failed: " + errorMsg);
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Cannot connect to backend server. Make sure Spring Boot is running on port 8080.");
+        } finally {
+            // Button ko wapas normal kar do
+            submitBtn.innerText = "Create Account";
+            submitBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

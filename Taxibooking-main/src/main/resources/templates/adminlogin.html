@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" >
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+
+
+   <!--  error=true/false -->
+
+   <div th:if="${param.error}">
+      <h2>INVALID CREDENTIALS</h2>
+   </div>
+   
+   <div th:if="${logout}">
+    <h2>YOU HAVE BEEN SUCCESSFULLY LOGGED OUT</h2>
+   </div>
+
+   <form action="/login" method="post">
+      <input name="username" type="text" placeholder="enter username"  ><br>
+      <input name="password" type="password" placeholder="enter password"  ><br>
+      <button>login</button>
+   </form>
+
+</body>
+</html>

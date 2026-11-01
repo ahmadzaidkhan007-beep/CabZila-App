@@ -1,0 +1,11 @@
+# IDE Specific Folders
+.idea/
+.vscode/
+*.iml
+
+# Compiled output
+target/
+*.class
+
+# OS Files
+.DS_Store

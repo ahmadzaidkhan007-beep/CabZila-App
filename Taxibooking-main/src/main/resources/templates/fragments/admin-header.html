@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Header Fragment</title>
+</head>
+<body>
+
+<!-- Usage: <div th:replace="~{fragments/admin-header :: adminHeader('bookings')}"></div>
+     Parameter: 'bookings' or 'settings' highlights the current page (any other value highlights nothing) -->
+<div th:fragment="adminHeader(active)">
+
+    <style>
+        .admin-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 0 24px;
+            min-height: 60px;
+            background: linear-gradient(90deg, #1f2937, #111827);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            font-family: Arial, Helvetica, sans-serif;
+            box-sizing: border-box;
+        }
+        .admin-nav * { box-sizing: border-box; }
+        .admin-nav .brand {
+            color: #fbbf24;
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+        }
+        .admin-nav .links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .admin-nav .links a {
+            color: #d1d5db;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .admin-nav .links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+        .admin-nav .links a.active {
+            background: #fbbf24;
+            color: #111827;
+            font-weight: bold;
+        }
+        .admin-nav form { margin: 0; }
+        .admin-nav .logout-btn {
+            background: #dc2626;
+            color: #ffffff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .admin-nav .logout-btn:hover { background: #b91c1c; }
+    </style>
+
+    <nav class="admin-nav">
+        <a class="brand" th:href="@{/admin/dashboard}">&#128661; Admin Panel</a>
+
+        <div class="links">
+            <a th:href="@{/admin/readAllBookings}"
+               th:classappend="${active == 'bookings'} ? 'active'">Bookings</a>
+            <a th:href="@{/admin/settings}"
+               th:classappend="${active == 'settings'} ? 'active'">Site Settings</a>
+
+            <!-- POST form: works with Spring Security's default logout and adds the CSRF token automatically -->
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        </div>
+    </nav>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CabZila - Passenger Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 🔥 WEBSOCKET & LOTTIE LIBRARIES 🔥 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else { document.documentElement.classList.remove('dark'); }
+
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { darkBg: '#050505', glassBg: 'rgba(20, 20, 20, 0.4)', glassBorder: 'rgba(255, 255, 255, 0.08)', goldAccent: '#d4af37' },
+                    animation: { blob: "blob 7s infinite" },
+                    keyframes: { blob: { "0%": { transform: "translate(0px, 0px) scale(1)" }, "33%": { transform: "translate(30px, -50px) scale(1.1)" }, "66%": { transform: "translate(-20px, 20px) scale(0.9)" }, "100%": { transform: "translate(0px, 0px) scale(1)" } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } .dark ::-webkit-scrollbar-thumb { background: #333; }
+        .leaflet-pane { z-index: 10; } .leaflet-top, .leaflet-bottom { z-index: 10; }
+        .dark .leaflet-layer, .dark .leaflet-control-zoom-in, .dark .leaflet-control-zoom-out, .dark .leaflet-control-attribution { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .animation-delay-2000 { animation-delay: 2s; } .animation-delay-4000 { animation-delay: 4s; }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col relative selection:bg-goldAccent selection:text-black bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-white transition-colors duration-300">
+
+<div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-[-1]">
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-goldAccent/30 dark:bg-goldAccent/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-blob"></div>
+    <div class="absolute top-[20%] right-[-10%] w-96 h-96 bg-blue-400/30 dark:bg-blue-600/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000"></div>
+    <div class="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-purple-400/30 dark:bg-purple-600/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-4000"></div>
+</div>
+
+<div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
+
+<!-- CHAT BOX -->
+<div id="chatBox" class="fixed bottom-5 right-5 z-50 w-80 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl hidden flex-col overflow-hidden transition-all backdrop-blur-xl">
+    <div class="bg-gray-100 dark:bg-white/5 border-b border-gray-200 dark:border-white/10 p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-message text-blue-500"></i> Captain Support</h3>
+        <button onclick="toggleChat()" class="text-gray-500 hover:text-red-500 transition"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="chatMessages" class="h-64 overflow-y-auto p-4 flex flex-col gap-3 text-sm bg-gray-50/50 dark:bg-black/20"></div>
+    <form onsubmit="sendChatMessage(event)" class="p-3 border-t border-gray-200 dark:border-white/10 flex gap-2 bg-white dark:bg-[#111]">
+        <input type="text" id="chatInput" placeholder="Type message..." class="flex-grow bg-gray-100 dark:bg-black/50 border border-transparent dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:border-blue-500 dark:focus:border-blue-500 text-sm" autocomplete="off">
+        <button type="submit" class="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-blue-500 transition"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+    </form>
+</div>
+
+<!-- Rating Modal -->
+<div id="ratingModal" class="fixed inset-0 z-50 hidden bg-black/70 flex items-center justify-center p-4">
+    <div id="ratingModalContent" class="bg-white dark:bg-[#111] border border-gray-200 dark:border-goldAccent/30 rounded-2xl w-full max-w-sm shadow-[0_0_40px_rgba(212,175,55,0.1)] p-6 flex flex-col items-center text-center backdrop-blur-xl">
+        <div class="w-12 h-12 bg-goldAccent/10 rounded-full flex items-center justify-center mb-4"><i class="fa-solid fa-star text-goldAccent text-xl"></i></div>
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">Rate Your Trip</h3>
+        <div id="starSelection" class="flex gap-2 text-3xl mb-6 cursor-pointer text-gray-300 dark:text-gray-600 transition-colors">
+            <i class="fa-solid fa-star hover:text-yellow-400" data-val="1"></i><i class="fa-solid fa-star hover:text-yellow-400" data-val="2"></i>
+            <i class="fa-solid fa-star hover:text-yellow-400" data-val="3"></i><i class="fa-solid fa-star hover:text-yellow-400" data-val="4"></i><i class="fa-solid fa-star hover:text-yellow-400" data-val="5"></i>
+        </div>
+        <textarea id="feedbackInput" rows="3" placeholder="Leave a compliment (Optional)..." class="w-full bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl p-3 text-sm outline-none focus:border-goldAccent transition-colors mb-6 resize-none"></textarea>
+        <div class="flex gap-3 w-full">
+            <button onclick="closeRatingModal()" class="flex-1 py-3 rounded-xl border border-gray-300 dark:border-white/10 text-gray-600 dark:text-white font-medium hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">Cancel</button>
+            <button onclick="submitRating()" class="flex-1 py-3 rounded-xl bg-goldAccent text-black font-bold hover:bg-[#b5952f] transition-colors shadow-lg shadow-goldAccent/20">Submit</button>
+        </div>
+    </div>
+</div>
+
+<nav class="sticky top-0 z-40 backdrop-blur-xl bg-white/70 dark:bg-black/40 border-b border-gray-200 dark:border-glassBorder px-6 py-4 transition-colors">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-2 select-none">
+            <i class="fa-solid fa-location-arrow text-[#d4af37] text-xl drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight"><span class="text-gray-900 dark:text-white">Cab</span><span class="text-transparent bg-clip-text bg-gradient-to-r from-[#d4af37] to-[#f3e5ab]">Zila</span></h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-white/20 transition-colors"><i id="themeToggleIcon" class="fa-solid fa-moon"></i></button>
+
+            <!-- 🔥 ZILA WALLET BADGE 🔥 -->
+            <span class="hidden md:flex items-center gap-1.5 bg-yellow-100 dark:bg-goldAccent/10 text-yellow-700 dark:text-goldAccent px-3 py-1 rounded-full text-xs font-bold border border-yellow-300 dark:border-goldAccent/30 shadow-sm">
+        <i class="fa-solid fa-coins"></i> <span id="zilaCoins">150</span>
+      </span>
+
+            <span class="text-sm font-medium hidden md:block">Welcome, <span id="userNameDisplay" class="font-semibold">User</span></span>
+            <button onclick="logout()" class="text-sm font-medium text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden md:inline">Logout</span></button>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8 z-10">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 h-fit lg:h-[500px]">
+
+        <!-- Form -->
+        <div class="lg:col-span-4 h-full bg-white dark:bg-glassBg border border-gray-200 dark:border-glassBorder rounded-3xl backdrop-blur-xl p-6 sm:p-8 shadow-2xl flex flex-col transition-colors">
+            <div class="mb-6 flex items-center justify-between">
+                <h2 class="text-xl font-semibold flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center"><i class="fa-solid fa-car text-sm text-gray-600 dark:text-gray-200"></i></div>
+                    Request a Ride
+                </h2>
+                <button type="button" onclick="startVoiceRecognition()" title="Voice AI Booking" class="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center border border-blue-200 dark:border-blue-500/30 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors group relative shadow-md">
+                    <i id="micIcon" class="fa-solid fa-microphone text-blue-600 dark:text-blue-400 transition-colors"></i>
+                    <div class="absolute -bottom-10 right-0 w-32 bg-gray-900 text-white text-[10px] text-center p-1.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">Say: "From X to Y"</div>
+                </button>
+            </div>
+
+            <form id="bookingForm" class="space-y-5 flex-grow flex flex-col justify-center">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Pickup Location</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><i class="fa-solid fa-map-pin text-green-500 dark:text-green-400 text-sm"></i></div>
+                        <input type="text" id="pickupLocation" required placeholder="Tap map or type here..." class="w-full bg-gray-50 dark:bg-black/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-1 focus:ring-goldAccent block pl-10 p-3.5 transition-all outline-none">
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Dropoff Location</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><i class="fa-solid fa-location-dot text-red-500 dark:text-red-400 text-sm"></i></div>
+                        <input type="text" id="dropoffLocation" required placeholder="Tap map or type here..." class="w-full bg-gray-50 dark:bg-black/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-1 focus:ring-goldAccent block pl-10 p-3.5 transition-all outline-none">
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider pl-1">Vehicle Type</label>
+                    <select id="vehicleType" required class="w-full bg-gray-50 dark:bg-black/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-1 focus:ring-goldAccent block p-3.5 transition-all outline-none">
+                        <option value="AUTO">🛺 Auto - Quick & Affordable</option><option value="BIKE">🏍️ Bike - Beat the traffic</option>
+                        <option value="SEDAN" selected>🚘 Sedan - Comfort ride</option><option value="SUV">🚙 SUV - Extra space</option>
+                    </select>
+                </div>
+
+                <!-- 🔥 DISCOUNT TOGGLE BUTTON 🔥 -->
+                <div id="coinToggleContainer" class="flex items-center justify-between bg-yellow-50 dark:bg-goldAccent/10 px-4 py-3 rounded-xl border border-yellow-200 dark:border-goldAccent/30 transition-all opacity-50">
+                    <label class="text-[11px] font-bold text-yellow-700 dark:text-goldAccent flex items-center gap-2 cursor-pointer w-full select-none tracking-wide" for="useCoinsToggle">
+                        <i class="fa-solid fa-tag text-sm"></i> USE 50 COINS FOR ₹10 OFF
+                    </label>
+                    <input type="checkbox" id="useCoinsToggle" disabled class="w-5 h-5 accent-yellow-500 cursor-pointer">
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full mt-4 bg-gray-900 dark:bg-gradient-to-r dark:from-white dark:to-gray-200 text-white dark:text-black font-bold rounded-xl p-3.5 hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] flex justify-center gap-2">
+                    <span id="btnText">Find a Driver</span><i id="btnIcon" class="fa-solid fa-arrow-right mt-1"></i><i id="loadingSpinner" class="fa-solid fa-circle-notch fa-spin hidden mt-1"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- Map -->
+        <div class="lg:col-span-8 h-[400px] lg:h-full bg-white dark:bg-glassBg border border-gray-200 dark:border-glassBorder rounded-3xl overflow-hidden relative shadow-2xl transition-colors" id="mapContainerPanel">
+            <div id="map" class="w-full h-full z-0"></div>
+            <div id="mapOverlayText" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-black/80 backdrop-blur-md border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs px-5 py-2.5 rounded-full z-20 shadow-xl transition-all"><i class="fa-solid fa-bolt text-goldAccent mr-1"></i> Interactive Map Ready</div>
+        </div>
+    </div>
+
+    <div class="w-full bg-white dark:bg-glassBg border border-gray-200 dark:border-glassBorder rounded-3xl backdrop-blur-xl p-6 sm:p-8 flex flex-col h-[400px] transition-colors">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center"><i class="fa-solid fa-clock-rotate-left text-sm text-gray-600 dark:text-gray-200"></i></div> Recent Activity
+            </h2>
+            <button onclick="fetchMyRides(true)" class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-gray-100 dark:bg-white/5 p-2 rounded-full transition-colors"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+
+        <div id="ridesContainer" class="flex-grow overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="col-span-full animate-pulse flex flex-col gap-4 w-full">
+                <div class="h-32 bg-gray-200 dark:bg-white/5 rounded-2xl w-full"></div>
+                <div class="h-32 bg-gray-200 dark:bg-white/5 rounded-2xl w-full"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function toggleTheme() {
+        document.documentElement.classList.toggle('dark');
+        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const icon = document.getElementById('themeToggleIcon');
+        if(document.documentElement.classList.contains('dark')) { icon.classList.replace('fa-moon', 'fa-sun'); }
+        else { icon.classList.replace('fa-sun', 'fa-moon'); }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const icon = document.getElementById('themeToggleIcon');
+        if(document.documentElement.classList.contains('dark')) icon.classList.replace('fa-moon', 'fa-sun');
+    });
+
+    let hostIP = window.location.hostname;
+    if (!hostIP) { hostIP = 'localhost'; }
+
+    const API_BASE = `http://${hostIP}:8080/api`;
+    const WS_URL = `http://${hostIP}:8080/ws-chat`;
+
+    let currentUser = null, passengerId = null, ratingRideId = null, selectedStars = 0;
+    let map, pickupCoords = null, dropoffCoords = null, pMarker = null, dMarker = null, routeLine = null;
+    let activeTrackingRideId = null, carMarker = null, driverRouteLine = null, trackingInterval = null;
+    let stompClient = null, activeChatRideId = null, hasUnreadChat = false;
+
+    const pickupIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='w-5 h-5 bg-green-500 rounded-full border-[3px] border-white shadow-[0_0_15px_#22c55e]'></div>", iconSize: [20, 20], iconAnchor: [10, 10] });
+    const dropoffIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='w-5 h-5 bg-red-500 rounded-full border-[3px] border-white shadow-[0_0_15px_#ef4444]'></div>", iconSize: [20, 20], iconAnchor: [10, 10] });
+    const carIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='w-8 h-8 bg-white rounded-full border-4 border-goldAccent shadow-[0_0_20px_#d4af37] flex items-center justify-center'><i class='fa-solid fa-car-side text-black text-xs'></i></div>", iconSize: [32, 32], iconAnchor: [16, 16] });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        checkAuth(); initMap(); setupTwoWaySync(); fetchMyRides(true); setupStarSelection();
+        setInterval(() => fetchMyRides(), 5000);
+    });
+
+    function checkAuth() {
+        const userStr = localStorage.getItem('currentUser');
+        if (!userStr) { window.location.href = 'login.html'; return; }
+        currentUser = JSON.parse(userStr);
+        if(currentUser.role !== 'PASSENGER' && currentUser.role !== 'ADMIN') window.location.href = 'login.html';
+        passengerId = currentUser.id;
+        if(currentUser.name) document.getElementById('userNameDisplay').textContent = currentUser.name.split(' ')[0];
+    }
+
+    function logout() { localStorage.removeItem('currentUser'); window.location.href = 'login.html'; }
+
+    function triggerSOS(rideId, driverName, vehicleType, vehicleNumber, dropoff) {
+        const text = `🚨 URGENT: I am in a CabZila ride and feel unsafe. \n🚗 Captain: ${driverName} \n🚕 Vehicle: ${vehicleType} (Reg No: ${vehicleNumber}) \n📍 En route to: ${dropoff} \n🔢 Ride ID: #${rideId}. \nPlease contact me immediately!`;
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, '_blank');
+    }
+
+    async function connectWebSocket(bookingId) {
+        if (stompClient && stompClient.connected && activeChatRideId === bookingId) return;
+        if (stompClient) stompClient.disconnect();
+        activeChatRideId = bookingId;
+        await loadChatHistory(bookingId);
+        const socket = new SockJS(WS_URL);
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/chat/' + bookingId, function (message) { showIncomingMessage(JSON.parse(message.body)); });
+        });
+    }
+
+    async function loadChatHistory(bookingId) {
+        try {
+            const res = await fetch(`${API_BASE}/chat/history/${bookingId}`);
+            if(res.ok) {
+                const history = await res.json();
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                history.forEach(msg => {
+                    const isMe = msg.senderId === currentUser.id;
+                    const align = isMe ? 'self-end bg-blue-600 text-white' : 'self-start bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white';
+                    chatMessages.innerHTML += `<div class="max-w-[80%] rounded-xl px-3 py-2 ${align} shadow-sm"><p class="text-[10px] opacity-70 font-bold mb-0.5">${msg.senderName}</p><p>${msg.content}</p></div>`;
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } catch (e) {}
+    }
+
+    function toggleChat() {
+        const box = document.getElementById('chatBox');
+        if(box.classList.contains('hidden')) { box.classList.remove('hidden'); box.classList.add('flex'); hasUnreadChat = false; fetchMyRides(false); }
+        else { box.classList.add('hidden'); box.classList.remove('flex'); }
+    }
+
+    function sendChatMessage(e) {
+        e.preventDefault(); const input = document.getElementById('chatInput'); const content = input.value.trim();
+        if(content && stompClient && activeChatRideId) {
+            stompClient.send("/app/chat/" + activeChatRideId, {}, JSON.stringify({ bookingId: activeChatRideId, senderId: currentUser.id, senderName: currentUser.name, content: content }));
+            input.value = '';
+        }
+    }
+
+    function showIncomingMessage(msg) {
+        const chatMessages = document.getElementById('chatMessages');
+        const isMe = msg.senderId === currentUser.id;
+        const align = isMe ? 'self-end bg-blue-600 text-white' : 'self-start bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white';
+        chatMessages.innerHTML += `<div class="max-w-[80%] rounded-xl px-3 py-2 ${align} shadow-sm"><p class="text-[10px] opacity-70 font-bold mb-0.5">${msg.senderName}</p><p>${msg.content}</p></div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if(!isMe && document.getElementById('chatBox').classList.contains('hidden')) { hasUnreadChat = true; fetchMyRides(false); }
+    }
+
+    function startVoiceRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) { alert("Voice API not supported on this browser. Try Chrome."); return; }
+        const recognition = new SpeechRecognition(); recognition.lang = 'en-IN';
+        const micIcon = document.getElementById('micIcon'); const toast = document.getElementById('mapOverlayText');
+        recognition.onstart = function() { micIcon.classList.add('text-red-500', 'animate-pulse'); toast.innerHTML = `<i class="fa-solid fa-microphone text-red-500 mr-1 animate-pulse"></i> Listening... Say "Delhi to Noida"`; };
+        recognition.onresult = function(event) {
+            let transcript = event.results[0][0].transcript.toLowerCase(); transcript = transcript.replace(/(book a cab|book cab|take me|i want to go|ride|from)/g, '').trim(); let fromLoc = ""; let toLoc = "";
+            if (transcript.includes(" to ")) { let parts = transcript.split(" to "); fromLoc = parts[0].trim(); toLoc = parts[1].trim(); }
+            if (fromLoc && toLoc) {
+                resetMap(); document.getElementById('pickupLocation').value = fromLoc.charAt(0).toUpperCase() + fromLoc.slice(1); document.getElementById('dropoffLocation').value = toLoc.charAt(0).toUpperCase() + toLoc.slice(1);
+                setTimeout(() => { document.getElementById('pickupLocation').dispatchEvent(new Event('change')); setTimeout(() => { document.getElementById('dropoffLocation').dispatchEvent(new Event('change')); }, 600); }, 100);
+                toast.innerHTML = `<i class="fa-solid fa-check text-green-500 mr-1"></i> Locations Auto-filled!`;
+            } else { toast.innerHTML = `<i class="fa-solid fa-xmark text-red-500 mr-1"></i> Format not recognized. Say "X to Y"`; setTimeout(() => resetMapOverlay(), 3000); }
+        };
+        recognition.onend = function() { micIcon.classList.remove('text-red-500', 'animate-pulse'); }; recognition.start();
+    }
+
+    function resetMapOverlay() { document.getElementById('mapOverlayText').innerHTML = `<i class="fa-solid fa-bolt text-goldAccent mr-1"></i> Interactive Map Ready`; }
+
+    function initMap() { map = L.map('map').setView([28.6139, 77.2090], 11); L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { attribution: '&copy; Google Maps', maxZoom: 20 }).addTo(map); map.on('click', async function(e) { if(activeTrackingRideId) return; const lat = e.latlng.lat; const lng = e.latlng.lng; if (pickupCoords && dropoffCoords) resetMap(); if (!pickupCoords) { pickupCoords = e.latlng; pMarker = L.marker(pickupCoords, {icon: pickupIcon}).addTo(map); document.getElementById('pickupLocation').value = await reverseGeocode(lat, lng); } else if (!dropoffCoords) { dropoffCoords = e.latlng; dMarker = L.marker(dropoffCoords, {icon: dropoffIcon}).addTo(map); document.getElementById('dropoffLocation').value = await reverseGeocode(lat, lng); drawCustomRoute(); } }); }
+    function setupTwoWaySync() { document.getElementById('pickupLocation').addEventListener('change', async (e) => { if(activeTrackingRideId) return; const query = e.target.value.trim(); if(!query) { if(pMarker) map.removeLayer(pMarker); pickupCoords = null; if(routeLine) map.removeLayer(routeLine); return; } const coords = await forwardGeocode(query); if(coords) { pickupCoords = coords; if(pMarker) map.removeLayer(pMarker); pMarker = L.marker(pickupCoords, {icon: pickupIcon}).addTo(map); map.setView(pickupCoords, 14); if(pickupCoords && dropoffCoords) drawCustomRoute(); } }); document.getElementById('dropoffLocation').addEventListener('change', async (e) => { if(activeTrackingRideId) return; const query = e.target.value.trim(); if(!query) { if(dMarker) map.removeLayer(dMarker); dropoffCoords = null; if(routeLine) map.removeLayer(routeLine); return; } const coords = await forwardGeocode(query); if(coords) { dropoffCoords = coords; if(dMarker) map.removeLayer(dMarker); dMarker = L.marker(dropoffCoords, {icon: dropoffIcon}).addTo(map); map.setView(dropoffCoords, 14); if(pickupCoords && dropoffCoords) drawCustomRoute(); } }); }
+    async function forwardGeocode(q) { try { const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`); const data = await res.json(); if(data.length > 0) return L.latLng(data[0].lat, data[0].lon); return null; } catch(e) { return null; } }
+    async function reverseGeocode(lat, lng) { try { const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`); const data = await res.json(); if(data.locality) return `${data.locality}, ${data.city || data.principalSubdivision}`.replace(/^, | ,/g, '').trim(); return `${lat.toFixed(4)}, ${lng.toFixed(4)}`; } catch(e) { return `${lat.toFixed(4)}, ${lng.toFixed(4)}`; } }
+    async function drawCustomRoute() { if(routeLine) map.removeLayer(routeLine); try { const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords.lng},${pickupCoords.lat};${dropoffCoords.lng},${dropoffCoords.lat}?overview=full&geometries=geojson`); const data = await res.json(); if(data.routes && data.routes.length > 0) { const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]); routeLine = L.polyline(routeCoords, { color: '#d4af37', weight: 4, opacity: 0.8, dashArray: '10, 10' }).addTo(map); } else { routeLine = L.polyline([pickupCoords, dropoffCoords], { color: '#d4af37', weight: 4 }).addTo(map); } } catch(e) { routeLine = L.polyline([pickupCoords, dropoffCoords], { color: '#d4af37', weight: 4 }).addTo(map); } map.fitBounds(routeLine.getBounds(), { padding: [50, 50] }); }
+    function resetMap() { if(pMarker) map.removeLayer(pMarker); if(dMarker) map.removeLayer(dMarker); if(routeLine) map.removeLayer(routeLine); if(carMarker) map.removeLayer(carMarker); if(driverRouteLine) map.removeLayer(driverRouteLine); if(trackingInterval) clearInterval(trackingInterval); pickupCoords = null; dropoffCoords = null; document.getElementById('pickupLocation').value = ''; document.getElementById('dropoffLocation').value = ''; resetMapOverlay(); document.getElementById('mapContainerPanel').classList.remove('border-blue-500', 'shadow-[0_0_30px_rgba(59,130,246,0.3)]'); }
+    async function startLiveTracking(ride) { connectWebSocket(ride.id); if (activeTrackingRideId === ride.id) return; activeTrackingRideId = ride.id; resetMap(); document.getElementById('mapContainerPanel').classList.add('border-blue-500', 'shadow-[0_0_30px_rgba(59,130,246,0.3)]'); document.getElementById('mapOverlayText').innerHTML = `<i class="fa-solid fa-satellite-dish text-blue-500 mr-1 animate-pulse"></i> Locating Captain ${ride.driverName || ''}...`; let pCoords = await forwardGeocode(ride.pickupLocation); if(!pCoords) pCoords = L.latLng(28.6139, 77.2090); pMarker = L.marker(pCoords, {icon: pickupIcon}).addTo(map); const driverStart = L.latLng(pCoords.lat - 0.025, pCoords.lng + 0.025); try { const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${driverStart.lng},${driverStart.lat};${pCoords.lng},${pCoords.lat}?overview=full&geometries=geojson`); const data = await res.json(); if(data.routes && data.routes.length > 0) { const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]); driverRouteLine = L.polyline(routeCoords, { color: '#3b82f6', weight: 4, opacity: 0.5, dashArray: '5, 10' }).addTo(map); map.fitBounds(driverRouteLine.getBounds(), { padding: [50, 50] }); carMarker = L.marker(routeCoords[0], {icon: carIcon}).addTo(map); document.getElementById('mapOverlayText').innerHTML = `<i class="fa-solid fa-car-side text-blue-500 mr-1"></i> Captain ${ride.driverName || ''} is on the way!`; let currentIndex = 0; trackingInterval = setInterval(() => { if(currentIndex >= routeCoords.length - 1) { clearInterval(trackingInterval); document.getElementById('mapOverlayText').innerHTML = `<i class="fa-solid fa-location-dot text-green-500 mr-1 animate-bounce"></i> Arrived! Ride Complete.`; completeRide(activeTrackingRideId); return; } currentIndex++; carMarker.setLatLng(routeCoords[currentIndex]); }, 150); } } catch(e) {} }
+    function stopLiveTracking() { activeTrackingRideId = null; if(trackingInterval) clearInterval(trackingInterval); if(carMarker) map.removeLayer(carMarker); if(driverRouteLine) map.removeLayer(driverRouteLine); if(pMarker) map.removeLayer(pMarker); document.getElementById('mapContainerPanel').classList.remove('border-blue-500', 'shadow-[0_0_30px_rgba(59,130,246,0.3)]'); resetMapOverlay(); if(stompClient) { stompClient.disconnect(); stompClient = null; } document.getElementById('chatBox').classList.add('hidden'); document.getElementById('chatBox').classList.remove('flex'); }
+    async function completeRide(bookingId) { if(!confirm("End this ride and mark as completed?")) return; try { await fetch(`${API_BASE}/bookings/${bookingId}/complete`, { method: 'PUT' }); fetchMyRides(true); } catch (e) {} }
+    async function cancelRide(id) { if(!confirm("Cancel this ride request?")) return; try { let res = await fetch(`${API_BASE}/bookings/${id}/cancel`, { method: 'PUT' }); if(!res.ok) res = await fetch(`${API_BASE}/bookings/delete/${id}`, { method: 'DELETE' }); resetMap(); fetchMyRides(true); } catch (e) { } }
+
+    // 🔥 SUBMIT RIDE WITH DISCOUNT LOGIC 🔥
+    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if(activeTrackingRideId) { alert("You already have an active ride!"); return; }
+
+        const pickupInput = document.getElementById('pickupLocation').value.trim();
+        const dropoffInput = document.getElementById('dropoffLocation').value.trim();
+        const vType = document.getElementById('vehicleType').value;
+        const isDiscountApplied = document.getElementById('useCoinsToggle').checked; // Toggle Value
+
+        if(!pickupInput || !dropoffInput) { alert("Please provide both Pickup and Dropoff locations."); return; }
+
+        document.getElementById('btnText').textContent = "Requesting...";
+        document.getElementById('btnIcon').classList.add('hidden');
+        document.getElementById('loadingSpinner').classList.remove('hidden');
+        document.getElementById('submitBtn').disabled = true;
+
+        try {
+            const response = await fetch(`${API_BASE}/bookings/request`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // ✅ PASSING `useZilaCoins` FLAG TO BACKEND
+                body: JSON.stringify({
+                    passengerId: Number(passengerId),
+                    pickupLocation: pickupInput,
+                    dropoffLocation: dropoffInput,
+                    vehicleType: vType,
+                    useZilaCoins: isDiscountApplied
+                })
+            });
+
+            if(response.ok) {
+                document.getElementById('bookingForm').reset();
+                document.getElementById('useCoinsToggle').checked = false; // Reset Toggle
+                resetMap();
+                fetchMyRides(true);
+            } else {
+                const errText = await response.text();
+                alert("Failed to book ride: " + errText);
+            }
+        } catch(e) {
+            console.error("Booking Error:", e);
+            alert("Network error: Backend server (Spring Boot) is offline or unreachable. Please check backend.");
+        } finally {
+            document.getElementById('btnText').textContent = "Find a Driver";
+            document.getElementById('btnIcon').classList.remove('hidden');
+            document.getElementById('loadingSpinner').classList.add('hidden');
+            document.getElementById('submitBtn').disabled = false;
+        }
+    });
+
+    async function fetchMyRides(manual = false) {
+        if(!passengerId) return; const container = document.getElementById('ridesContainer');
+        if (manual) { container.innerHTML = `<div class="col-span-full animate-pulse flex flex-col gap-4 w-full"><div class="h-32 bg-gray-200 dark:bg-white/5 rounded-2xl w-full"></div></div>`; }
+
+        try {
+            const res = await fetch(`${API_BASE}/bookings/passenger/${passengerId}?t=${new Date().getTime()}`);
+            if (!res.ok) return; const rides = await res.json();
+            const activeRide = rides.find(r => r.status === 'ACCEPTED' || r.status === 'ONGOING');
+            if(activeRide) startLiveTracking(activeRide); else if (activeTrackingRideId) stopLiveTracking();
+
+            // 🔥 WALLET BALANCE CALCULATION 🔥
+            let completedCount = rides.filter(r => r.status === 'COMPLETED').length;
+            let usedCount = rides.filter(r => r.coinsUsed === true).length;
+
+            let balanceCoins = 100 + (completedCount * 50) - (usedCount * 50); // 100 is welcome bonus
+            if(balanceCoins < 0) balanceCoins = 0;
+            document.getElementById('zilaCoins').innerText = balanceCoins;
+
+            // Update Discount Toggle Availability
+            const coinToggle = document.getElementById('useCoinsToggle');
+            const coinContainer = document.getElementById('coinToggleContainer');
+
+            if(balanceCoins < 50) {
+                coinToggle.disabled = true;
+                coinToggle.checked = false;
+                coinContainer.classList.add('opacity-50');
+            } else {
+                coinToggle.disabled = false;
+                coinContainer.classList.remove('opacity-50');
+            }
+
+            renderRides(rides);
+        } catch(e) { }
+    }
+
+    function renderRides(rides) {
+        const container = document.getElementById('ridesContainer');
+        if (!rides || rides.length === 0) { container.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center h-full text-gray-500 gap-2 opacity-80 mt-4"><lottie-player src="https://lottie.host/82df2833-255e-44c1-ae0c-5154ee4e8156/6Jv0p7M2L7.json" background="transparent" speed="1" style="width: 180px; height: 180px;" loop autoplay></lottie-player><p class="text-sm font-medium">No rides yet. Time to book your first CabZila!</p></div>`; return; }
+        rides.sort((a, b) => b.id - a.id);
+        container.innerHTML = rides.map(ride => {
+            let statusColor = 'bg-gray-500'; if (ride.status === 'COMPLETED') statusColor = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'; if (ride.status === 'REQUESTED') statusColor = 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]'; if (ride.status === 'ACCEPTED' || ride.status === 'ONGOING') statusColor = 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]'; if (ride.status === 'DECLINED') statusColor = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse';
+
+            let actionArea = '';
+            if (ride.status === 'COMPLETED') { if (!ride.rating) actionArea = `<button onclick="openRatingModal(${ride.id})" class="mt-3 text-xs bg-goldAccent/10 border border-goldAccent/30 text-goldAccent px-4 py-1.5 rounded-lg"><i class="fa-solid fa-star"></i> Rate</button>`; else actionArea = `<div class="mt-3 text-yellow-400 text-xs flex gap-0.5">${'<i class="fa-solid fa-star"></i>'.repeat(ride.rating)}${'<i class="fa-regular fa-star opacity-30"></i>'.repeat(5-ride.rating)}</div>`; }
+            else if (ride.status === 'REQUESTED') { actionArea = `<button onclick="cancelRide(${ride.id})" class="mt-3 text-[11px] font-bold bg-red-500/10 text-red-500 px-4 py-2 rounded-xl"><i class="fa-solid fa-xmark"></i> CANCEL RIDE</button>`; }
+            else if (ride.status === 'DECLINED') { actionArea = `<div class="mt-3 text-[11px] font-bold bg-red-500/10 text-red-500 px-4 py-2 rounded-xl"><i class="fa-solid fa-triangle-exclamation"></i> DRIVER DECLINED</div>`; }
+            else if (ride.status === 'ACCEPTED') {
+                actionArea = `
+                    <div class="mt-3 w-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-500/30 p-3 rounded-xl flex items-center justify-between shadow-inner">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Share PIN to Start</span>
+                            <span class="text-2xl font-black text-gray-900 dark:text-white tracking-widest drop-shadow-md">${ride.otp || '1234'}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleChat()" class="text-[11px] font-bold bg-blue-500 text-white px-3 py-2 rounded-lg shadow-md hover:bg-blue-600 transition"><i class="fa-solid fa-message"></i></button>
+                            <button onclick="triggerSOS(${ride.id}, '${ride.driverName}', '${ride.vehicleType}', '${ride.vehicleNumber || 'UP 11 AB 1234'}', '${ride.dropoffLocation}')" class="text-[11px] font-bold bg-red-600 text-white px-3 py-2 rounded-lg shadow-md hover:bg-red-500 transition"><i class="fa-solid fa-triangle-exclamation"></i></button>
+                        </div>
+                    </div>`;
+            }
+            else if (ride.status === 'ONGOING') {
+                let badgeClass = hasUnreadChat ? "absolute -top-1 -right-1 flex h-3 w-3" : "hidden absolute -top-1 -right-1 flex h-3 w-3";
+                actionArea = `<div class="flex gap-2 mt-3 w-full">
+                    <button onclick="toggleChat()" class="relative flex-1 text-[11px] font-bold bg-blue-500 text-white py-1.5 rounded-xl shadow-lg hover:bg-blue-600 transition"><i class="fa-solid fa-message"></i> CHAT<span id="chatBadge" class="${badgeClass}"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-white"></span></span></button>
+                    <button onclick="triggerSOS(${ride.id}, '${ride.driverName || 'Captain'}', '${ride.vehicleType}', '${ride.vehicleNumber || 'UP 11 AB 1234'}', '${ride.dropoffLocation}')" class="flex-1 text-[11px] font-bold bg-red-600 text-white py-1.5 rounded-xl shadow-lg hover:bg-red-500 transition animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> SOS</button>
+                </div>`;
+            }
+
+            // 🔥 FIX: ADDED DISCOUNT BADGE TO UI 🔥
+            let isSurge = ride.fare > 80 && ride.status === 'REQUESTED';
+            let coinDiscountBadge = ride.coinsUsed ? `<span class="bg-green-100 text-green-600 text-[10px] px-1 rounded border border-green-200 ml-1 font-bold"><i class="fa-solid fa-tag"></i> Discounted</span>` : '';
+            let surgeBadge = isSurge ? `<span class="bg-purple-100 text-purple-600 text-[10px] px-1 rounded border border-purple-200 ml-1 font-bold"><i class="fa-solid fa-bolt"></i> Surge</span>` : '';
+
+            return `<div class="bg-gray-50 dark:bg-black/40 border ${ride.status === 'ACCEPTED' || ride.status === 'ONGOING' ? 'border-blue-500/50 shadow-md' : (ride.status === 'DECLINED' ? 'border-red-500/50' : 'border-gray-200 dark:border-white/10')} rounded-2xl p-5 flex flex-col justify-between"><div class="flex justify-between items-start mb-4"><div class="flex items-center gap-2"><span class="text-xs font-semibold px-2 py-1 bg-gray-200 dark:bg-white/10 rounded-md text-gray-700 dark:text-gray-300">${ride.vehicleType}</span><div class="flex items-center gap-1.5 ml-2"><div class="w-2 h-2 rounded-full ${statusColor}"></div><span class="text-xs text-gray-600 dark:text-gray-400 font-medium">${ride.status}</span></div></div><div class="flex flex-col items-end"><span class="text-lg font-bold text-gray-900 dark:text-white">₹${ride.fare ? ride.fare.toFixed(0) : '0'}</span><div class="flex mt-1">${surgeBadge} ${coinDiscountBadge}</div></div></div><div class="flex items-start gap-3"><div class="flex flex-col items-center pt-1.5 gap-1"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div><div class="w-0.5 h-3 bg-gray-300 dark:bg-white/20"></div><div class="w-1.5 h-1.5 rounded-full bg-red-500"></div></div><div class="flex flex-col text-sm text-gray-700 dark:text-gray-200 w-full"><span class="truncate block">${ride.pickupLocation}</span><span class="truncate block mt-1">${ride.dropoffLocation}</span></div></div><div class="flex flex-col mt-4 pt-3 border-t border-gray-200 dark:border-white/5"><span class="text-[10px] text-gray-500 text-center mb-1">ID #${ride.id} ${ride.driverName ? '• Capt: '+ride.driverName : ''}</span>${actionArea}</div></div>`;
+        }).join('');
+    }
+
+    function setupStarSelection() { document.querySelectorAll('#starSelection i').forEach(star => { star.addEventListener('mouseenter', function() { highlightStars(this.getAttribute('data-val')); }); star.addEventListener('click', function() { selectedStars = this.getAttribute('data-val'); highlightStars(selectedStars); }); }); document.getElementById('starSelection').addEventListener('mouseleave', function() { highlightStars(selectedStars); }); }
+    function highlightStars(count) { document.querySelectorAll('#starSelection i').forEach((star, index) => { star.className = index < count ? "fa-solid fa-star text-yellow-400" : "fa-solid fa-star text-gray-300 dark:text-gray-600"; }); }
+    function openRatingModal(id) { ratingRideId = id; selectedStars = 0; highlightStars(0); document.getElementById('feedbackInput').value = ''; document.getElementById('ratingModal').classList.remove('hidden'); }
+    function closeRatingModal() { document.getElementById('ratingModal').classList.add('hidden'); }
+    async function submitRating() { if (selectedStars === 0) return; await fetch(`${API_BASE}/bookings/${ratingRideId}/rate`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rating: parseInt(selectedStars), feedback: document.getElementById('feedbackInput').value.trim() }) }); closeRatingModal(); fetchMyRides(true); }
+</script>
+</body>
+</html>

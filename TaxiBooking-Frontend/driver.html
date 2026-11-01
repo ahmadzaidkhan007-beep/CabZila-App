@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CabZila - Driver Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); }
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { darkBg: '#050505', goldAccent: '#d4af37' } } } }
+    </script>
+    <style>
+        body { overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } .dark ::-webkit-scrollbar-thumb { background: #333; }
+        .radar-ping { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col relative selection:bg-goldAccent selection:text-black bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-white transition-colors duration-300">
+
+<div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-[-1]">
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-goldAccent/30 dark:bg-goldAccent/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px]"></div>
+    <div class="absolute top-[20%] right-[-10%] w-96 h-96 bg-blue-400/30 dark:bg-blue-600/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px]"></div>
+</div>
+
+<div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
+
+<!-- CHAT BOX -->
+<div id="chatBox" class="fixed bottom-5 right-5 z-50 w-80 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl hidden flex-col overflow-hidden transition-all backdrop-blur-xl">
+    <div class="bg-gray-100 dark:bg-white/5 border-b border-gray-200 dark:border-white/10 p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-message text-blue-500"></i> Passenger Chat</h3>
+        <button onclick="toggleChat()" class="text-gray-500 hover:text-red-500 transition"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="chatMessages" class="h-64 overflow-y-auto p-4 flex flex-col gap-3 text-sm bg-gray-50/50 dark:bg-black/20"></div>
+    <form onsubmit="sendChatMessage(event)" class="p-3 border-t border-gray-200 dark:border-white/10 flex gap-2 bg-white dark:bg-[#111]">
+        <input type="text" id="chatInput" placeholder="Type message..." class="flex-grow bg-gray-100 dark:bg-black/50 border border-transparent dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:border-blue-500 text-sm" autocomplete="off">
+        <button type="submit" class="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-blue-500 transition"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+    </form>
+</div>
+
+<nav class="sticky top-0 z-40 backdrop-blur-xl bg-white/70 dark:bg-black/40 border-b border-gray-200 dark:border-white/10 px-6 py-4 transition-colors">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-2 select-none">
+            <i class="fa-solid fa-steering-wheel text-[#d4af37] text-xl"></i>
+            <h1 class="text-2xl font-bold tracking-tight"><span class="text-gray-900 dark:text-white">Cab</span><span class="text-transparent bg-clip-text bg-gradient-to-r from-[#d4af37] to-[#f3e5ab]">Zila</span><span class="text-[10px] font-bold bg-gray-200 dark:bg-white/10 px-2 py-1 rounded ml-2 text-gray-600 dark:text-gray-300">CAPTAIN</span></h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-white/20"><i id="themeToggleIcon" class="fa-solid fa-moon"></i></button>
+            <span class="text-sm font-medium hidden md:block">Ready, <span id="userNameDisplay" class="font-semibold">Driver</span></span>
+            <button onclick="logout()" class="text-sm font-medium text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden md:inline">Duty Off</span></button>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow max-w-7xl mx-auto w-full px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 z-10">
+    <div class="lg:col-span-5 flex flex-col h-[750px]">
+        <div class="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-3xl backdrop-blur-xl p-6 flex flex-col h-full shadow-2xl transition-colors">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold flex items-center gap-3">
+                    <div class="relative w-8 h-8 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center"><i class="fa-solid fa-satellite-dish text-green-600 dark:text-green-400 text-sm z-10"></i><div class="absolute inset-0 rounded-full bg-green-500/30 radar-ping"></div></div> Live Radar
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="resetDeclinedRides()" class="text-xs font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded-lg border border-transparent"><i class="fa-solid fa-eye mr-1"></i> Show Hidden</button>
+                    <button onclick="fetchAvailableRides(true)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 p-2 rounded-full"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+            </div>
+            <div id="radarContainer" class="flex-grow overflow-y-auto space-y-4 pr-2"></div>
+        </div>
+    </div>
+
+    <div class="lg:col-span-7 flex flex-col h-[750px]">
+        <div class="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-3xl backdrop-blur-xl p-6 flex flex-col h-full shadow-2xl transition-colors">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center"><i class="fa-solid fa-list-check text-gray-600 dark:text-gray-200 text-sm"></i></div> My Logbook
+                </h2>
+                <button onclick="fetchMyRides(true)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 p-2 rounded-full"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            <div id="myRidesContainer" class="flex-grow overflow-y-auto space-y-4 pr-2"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; document.getElementById('themeToggleIcon').classList.replace(document.documentElement.classList.contains('dark') ? 'fa-moon' : 'fa-sun', document.documentElement.classList.contains('dark') ? 'fa-sun' : 'fa-moon'); }
+    document.addEventListener('DOMContentLoaded', () => { if(document.documentElement.classList.contains('dark')) document.getElementById('themeToggleIcon').classList.replace('fa-moon', 'fa-sun'); });
+
+    let hostIP = window.location.hostname;
+    if (!hostIP) { hostIP = 'localhost'; }
+    const API_BASE = `http://${hostIP}:8080/api`;
+    const WS_URL = `http://${hostIP}:8080/ws-chat`;
+
+    let currentUser = null, driverId = null;
+    let hiddenRadarRides = JSON.parse(localStorage.getItem('cabzila_declined_rides') || '[]').map(Number);
+    let stompClient = null, activeChatRideId = null, hasUnreadChat = false;
+
+    // 🔥 NEW FLAG TO PAUSE POLLING WHILE TYPING OTP 🔥
+    window.isTypingOtp = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        checkAuth(); fetchAvailableRides(true); fetchMyRides(true);
+        setInterval(() => {
+            // Sirf tabhi refresh hoga jab OTP nahi type kar raha
+            if(!window.isTypingOtp) fetchAvailableRides();
+        }, 5000);
+        setInterval(() => {
+            if(!window.isTypingOtp) fetchMyRides();
+        }, 5000);
+    });
+
+    function checkAuth() { const userStr = localStorage.getItem('currentUser'); if (!userStr) { window.location.href = 'login.html'; return; } currentUser = JSON.parse(userStr); if(currentUser.role !== 'DRIVER' && currentUser.role !== 'ADMIN') window.location.href = 'login.html'; driverId = currentUser.id; document.getElementById('userNameDisplay').textContent = currentUser.name.split(' ')[0]; }
+    function logout() { localStorage.removeItem('currentUser'); window.location.href = 'login.html'; }
+    function resetDeclinedRides() { hiddenRadarRides = []; localStorage.removeItem('cabzila_declined_rides'); fetchAvailableRides(true); }
+
+    // 🔥 DB CHAT SYNC 🔥
+    async function connectWebSocket(bookingId) {
+        if (stompClient && stompClient.connected && activeChatRideId === bookingId) return;
+        if (stompClient) stompClient.disconnect();
+        activeChatRideId = bookingId;
+        await loadChatHistory(bookingId);
+        const socket = new SockJS(WS_URL);
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/chat/' + bookingId, function (message) { showIncomingMessage(JSON.parse(message.body)); });
+        });
+    }
+
+    async function loadChatHistory(bookingId) {
+        try {
+            const res = await fetch(`${API_BASE}/chat/history/${bookingId}`);
+            if(res.ok) {
+                const history = await res.json();
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                history.forEach(msg => {
+                    const isMe = msg.senderId === currentUser.id;
+                    const align = isMe ? 'self-end bg-blue-600 text-white' : 'self-start bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white';
+                    chatMessages.innerHTML += `<div class="max-w-[80%] rounded-xl px-3 py-2 ${align} shadow-sm"><p class="text-[10px] opacity-70 font-bold mb-0.5">${msg.senderName}</p><p>${msg.content}</p></div>`;
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } catch (e) {}
+    }
+
+    function toggleChat() {
+        const box = document.getElementById('chatBox');
+        if(box.classList.contains('hidden')) { box.classList.remove('hidden'); box.classList.add('flex'); hasUnreadChat = false; fetchMyRides(false); }
+        else { box.classList.add('hidden'); box.classList.remove('flex'); }
+    }
+
+    function sendChatMessage(e) {
+        e.preventDefault(); const input = document.getElementById('chatInput'); const content = input.value.trim();
+        if(content && stompClient && activeChatRideId) {
+            stompClient.send("/app/chat/" + activeChatRideId, {}, JSON.stringify({ bookingId: activeChatRideId, senderId: currentUser.id, senderName: currentUser.name, content: content }));
+            input.value = '';
+        }
+    }
+
+    function showIncomingMessage(msg) {
+        const chatMessages = document.getElementById('chatMessages');
+        const isMe = msg.senderId === currentUser.id;
+        const align = isMe ? 'self-end bg-blue-600 text-white' : 'self-start bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white';
+        chatMessages.innerHTML += `<div class="max-w-[80%] rounded-xl px-3 py-2 ${align} shadow-sm"><p class="text-[10px] opacity-70 font-bold mb-0.5">${msg.senderName}</p><p>${msg.content}</p></div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if(!isMe && document.getElementById('chatBox').classList.contains('hidden')) { hasUnreadChat = true; fetchMyRides(false); }
+    }
+
+    async function fetchAvailableRides(manual = false) {
+        if(!driverId) return; const container = document.getElementById('radarContainer');
+        if (manual) { container.innerHTML = `<div class="animate-pulse flex flex-col gap-4 w-full"><div class="h-32 bg-gray-200 dark:bg-white/5 rounded-2xl w-full"></div></div>`; }
+        try { const res = await fetch(`${API_BASE}/bookings/available?t=${new Date().getTime()}`); if(!res.ok) throw new Error("Backend connection issue"); let available = (await res.json()).filter(ride => !hiddenRadarRides.includes(Number(ride.id))); renderRadar(available); } catch (error) {}
+    }
+
+    function renderRadar(rides) {
+        const container = document.getElementById('radarContainer');
+        if(rides.length === 0) {
+            container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-500 gap-2 opacity-80 mt-10"><lottie-player src="https://lottie.host/82df2833-255e-44c1-ae0c-5154ee4e8156/6Jv0p7M2L7.json" background="transparent" speed="1" style="width: 150px; height: 150px;" loop autoplay></lottie-player><p class="text-sm font-medium">Scanning for passengers...</p></div>`;
+            return;
+        }
+
+        container.innerHTML = rides.map(ride => `
+                <div class="bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm dark:shadow-lg backdrop-blur-sm">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-xs px-2 py-1 rounded-md font-semibold border border-yellow-200 dark:border-yellow-500/30">NEW REQUEST</span>
+                            <h3 class="mt-2 text-lg font-bold text-gray-900 dark:text-white"><i class="fa-regular fa-user mr-2 text-gray-500 dark:text-gray-400 text-sm"></i>${ride.passengerName || 'Passenger'}</h3>
+                            <span class="text-xs text-gray-500">Cab Type: ${ride.vehicleType}</span>
+                        </div>
+                        <div class="text-right"><p class="text-xl font-bold text-[#d4af37]">₹${ride.fare.toFixed(2)}</p></div>
+                    </div>
+                    <div class="flex items-start gap-3 mb-5 bg-white dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-white/5">
+                        <div class="flex flex-col items-center pt-1 gap-1"><div class="w-2 h-2 rounded-full bg-green-500"></div><div class="w-0.5 h-4 bg-gray-300 dark:bg-white/20"></div><div class="w-2 h-2 rounded-full bg-red-500"></div></div>
+                        <div class="flex flex-col text-sm text-gray-700 dark:text-gray-300 gap-2 w-full"><span class="truncate">${ride.pickupLocation}</span><span class="truncate border-t border-gray-100 dark:border-white/10 pt-2">${ride.dropoffLocation}</span></div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="acceptRide(${ride.id})" class="flex-1 bg-gray-900 dark:bg-gradient-to-r dark:from-white dark:to-gray-300 text-white dark:text-black font-bold py-3 rounded-xl hover:scale-[1.02] transition-transform">Accept Ride</button>
+                        <button onclick="declineRide(${ride.id})" class="px-5 bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-500/30 font-semibold py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    async function declineRide(bookingId) { if(!confirm("Decline this request? The passenger will be notified.")) return; try { await fetch(`${API_BASE}/bookings/${bookingId}/decline`, { method: 'PUT' }); hiddenRadarRides.push(Number(bookingId)); localStorage.setItem('cabzila_declined_rides', JSON.stringify(hiddenRadarRides)); fetchAvailableRides(); } catch(error) {} }
+    async function acceptRide(bookingId) { try { await fetch(`${API_BASE}/bookings/${bookingId}/accept?driverId=${driverId}`, { method: 'PUT' }); hiddenRadarRides.push(Number(bookingId)); localStorage.setItem('cabzila_declined_rides', JSON.stringify(hiddenRadarRides)); fetchAvailableRides(); fetchMyRides(); } catch (error) {} }
+    async function completeRide(bookingId) { if(!confirm("End this ride and mark as completed?")) return; try { await fetch(`${API_BASE}/bookings/${bookingId}/complete`, { method: 'PUT' }); fetchMyRides(); } catch (error) {} }
+
+    // 🔥 FIX: NAYA FUNCTION OTP VERIFY KE LIYE 🔥
+    async function startRideWithOtp(bookingId) {
+        const otpInput = document.getElementById('otpInput_' + bookingId).value.trim();
+        if(!otpInput || otpInput.length !== 4) { alert("Please enter a valid 4-digit PIN."); return; }
+        window.isTypingOtp = false; // Reset the flag after submission
+        try {
+            const res = await fetch(`${API_BASE}/bookings/${bookingId}/start?otp=${otpInput}`, { method: 'PUT' });
+            if(res.ok) { fetchMyRides(true); }
+            else { const err = await res.text(); alert("Error: " + err); }
+        } catch(e) { alert("Network error while verifying PIN."); }
+    }
+
+    // Naya function Cancel karne ke liye (Agar OTP ke waqt passenger na mile)
+    async function cancelRide(id) {
+        if(!confirm("Cancel this ride?")) return;
+        try { await fetch(`${API_BASE}/bookings/${id}/cancel`, { method: 'PUT' }); fetchMyRides(true); }
+        catch (e) { }
+    }
+
+    async function fetchMyRides(manual = false) {
+        if(!driverId) return; const container = document.getElementById('myRidesContainer');
+        if (manual) { container.innerHTML = `<div class="animate-pulse flex flex-col gap-4 w-full"><div class="h-32 bg-gray-200 dark:bg-white/5 rounded-2xl w-full"></div></div>`; }
+        try {
+            const res = await fetch(`${API_BASE}/bookings/driver/${driverId}?t=${new Date().getTime()}`); let myRides = await res.json();
+
+            const activeRide = myRides.find(r => r.status === 'ACCEPTED' || r.status === 'ONGOING');
+            if(activeRide) { connectWebSocket(activeRide.id); } else if (stompClient) { stompClient.disconnect(); stompClient = null; document.getElementById('chatBox').classList.add('hidden'); document.getElementById('chatBox').classList.remove('flex'); }
+
+            myRides.sort((a, b) => {
+                if ((a.status === 'ACCEPTED' || a.status === 'ONGOING') && (b.status !== 'ACCEPTED' && b.status !== 'ONGOING')) return -1;
+                if ((a.status !== 'ACCEPTED' && a.status !== 'ONGOING') && (b.status === 'ACCEPTED' || b.status === 'ONGOING')) return 1;
+                return b.id - a.id;
+            });
+            renderMyRides(myRides);
+        } catch (error) {}
+    }
+
+    function renderMyRides(rides) {
+        const container = document.getElementById('myRidesContainer');
+        if(rides.length === 0) {
+            container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-500 gap-2 opacity-80 mt-10"><lottie-player src="https://lottie.host/82df2833-255e-44c1-ae0c-5154ee4e8156/6Jv0p7M2L7.json" background="transparent" speed="1" style="width: 150px; height: 150px;" loop autoplay></lottie-player><p class="text-sm font-medium">No rides in logbook yet.</p></div>`;
+            return;
+        }
+
+        container.innerHTML = rides.map(ride => {
+            const isActive = (ride.status === 'ACCEPTED' || ride.status === 'ONGOING');
+            let statusBadge = '';
+            if(ride.status === 'ACCEPTED') statusBadge = `<span class="bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 border text-[10px] px-2 py-1 rounded font-bold">ARRIVING</span>`;
+            else if(ride.status === 'ONGOING') statusBadge = `<span class="bg-blue-100 dark:bg-blue-500/20 text-blue-600 border text-[10px] font-bold tracking-wider px-2 py-1 rounded">ONGOING</span>`;
+            else if(ride.status === 'COMPLETED') statusBadge = `<span class="bg-green-100 dark:bg-green-500/10 text-green-600 border text-[10px] font-bold tracking-wider px-2 py-1 rounded">COMPLETED</span>`;
+            else statusBadge = `<span class="bg-gray-200 dark:bg-gray-500/20 text-gray-600 text-[10px] font-bold tracking-wider px-2 py-1 rounded">${ride.status}</span>`;
+
+            let starsHtml = '';
+            if (ride.rating && ride.rating > 0) {
+                starsHtml = '<div class="text-yellow-400 text-sm flex justify-end mt-1 gap-1">';
+                for(let i=0; i<5; i++) { starsHtml += i < ride.rating ? '<i class="fa-solid fa-star drop-shadow-md"></i>' : '<i class="fa-regular fa-star text-gray-300 dark:text-gray-600"></i>'; }
+                starsHtml += '</div>';
+            } else if (ride.status === 'COMPLETED') { starsHtml = '<div class="text-gray-400 text-[10px] mt-1 text-right italic">Pending Rating</div>'; }
+
+            // 🔥 FIX: CHAT BUTTON AUR OTP DONO SATH MEIN DIKHENGE 🔥
+            let actionArea = '';
+            if (ride.status === 'ACCEPTED') {
+                let badgeClass = hasUnreadChat ? "absolute -top-1 -right-1 flex h-3 w-3" : "hidden absolute -top-1 -right-1 flex h-3 w-3";
+                actionArea = `
+                    <div class="flex flex-col gap-2 mt-2 w-full">
+                        <div class="flex gap-2">
+                            <button onclick="toggleChat()" class="relative flex-1 bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white font-bold py-2 rounded-xl border border-gray-300 dark:border-transparent text-[11px]">
+                                <i class="fa-solid fa-message mr-1"></i> MSG PASSENGER
+                                <span id="chatBadge" class="${badgeClass}"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-white"></span></span>
+                            </button>
+                            <button onclick="cancelRide(${ride.id})" class="flex-1 bg-red-50 dark:bg-red-500/10 text-red-600 font-bold py-2 rounded-xl text-[11px] border border-red-200 dark:border-transparent">CANCEL</button>
+                        </div>
+                        <div class="flex gap-2 mt-1 w-full bg-blue-50 dark:bg-blue-900/20 p-2 rounded-xl border border-blue-200 dark:border-blue-500/30 shadow-inner">
+                            <input type="text" id="otpInput_${ride.id}" onfocus="window.isTypingOtp=true;" onblur="window.isTypingOtp=false;" placeholder="4-Digit PIN" maxlength="4" class="flex-1 bg-white dark:bg-black/50 border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1.5 text-center font-bold tracking-widest outline-none focus:border-blue-500 shadow-sm text-gray-900 dark:text-white">
+                            <button onclick="startRideWithOtp(${ride.id})" class="flex-1 bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[11px] shadow-md hover:bg-blue-500 transition">START RIDE</button>
+                        </div>
+                    </div>`;
+            } else if (ride.status === 'ONGOING') {
+                let badgeClass = hasUnreadChat ? "absolute -top-1 -right-1 flex h-3 w-3" : "hidden absolute -top-1 -right-1 flex h-3 w-3";
+                actionArea = `
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="toggleChat()" class="relative flex-1 bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white font-bold py-2 rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-colors border border-gray-300 dark:border-transparent text-[11px]">
+                            <i class="fa-solid fa-message mr-1"></i> MSG PASSENGER
+                            <span id="chatBadge" class="${badgeClass}"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-white"></span></span>
+                        </button>
+                        <button onclick="completeRide(${ride.id})" class="flex-1 bg-green-600 text-white font-bold py-2 rounded-xl hover:bg-green-500 transition-colors text-[11px] shadow-lg"><i class="fa-solid fa-check"></i> END RIDE</button>
+                    </div>`;
+            }
+
+            return `
+                <div class="bg-gray-50 dark:bg-black/40 border ${isActive ? 'border-blue-400 dark:border-blue-500/50' : 'border-gray-200 dark:border-white/5'} rounded-2xl p-5 flex flex-col relative overflow-hidden backdrop-blur-md">
+                    ${isActive ? '<div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>' : ''}
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex flex-col"><span class="text-xs text-gray-500 mb-1">Ride #${ride.id} • ${ride.passengerName || 'Passenger'}</span><div>${statusBadge}</div></div>
+                        <div class="text-right"><span class="text-xl font-bold text-gray-900 dark:text-white">₹${ride.fare.toFixed(2)}</span>${starsHtml}</div>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-700 dark:text-gray-300 gap-2 mb-4 bg-white dark:bg-white/5 p-2.5 rounded-xl border border-gray-200 dark:border-white/5"><i class="fa-solid fa-location-dot text-gray-400 dark:text-gray-500"></i><span class="truncate">${ride.pickupLocation} <i class="fa-solid fa-arrow-right mx-1 text-xs text-gray-400"></i> ${ride.dropoffLocation}</span></div>
+
+                    ${ride.feedback ? `
+                    <div class="mt-2 mb-4 p-3 bg-yellow-50 dark:bg-goldAccent/10 border border-yellow-200 dark:border-goldAccent/30 rounded-xl relative overflow-hidden shadow-sm">
+                        <i class="fa-solid fa-quote-left absolute opacity-20 text-4xl -top-1 -left-1 text-goldAccent"></i>
+                        <p class="text-sm text-gray-800 dark:text-gray-200 italic relative z-10 pl-2">"${ride.feedback}"</p>
+                    </div>` : ''}
+
+                    ${actionArea}
+                </div>`;
+        }).join('');
+    }
+</script>
+</body>
+</html>

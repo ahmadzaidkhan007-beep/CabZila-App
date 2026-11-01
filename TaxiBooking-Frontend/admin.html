@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CabZila - Admin Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); }
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { darkBg: '#050505', goldAccent: '#d4af37' } } } }
+    </script>
+    <style>
+        body { overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } .dark ::-webkit-scrollbar-thumb { background: #333; }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.2); }
+        .dark .glass-panel { background: rgba(20, 20, 20, 0.6); border: 1px solid rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col relative selection:bg-goldAccent selection:text-black bg-gray-100 dark:bg-darkBg text-gray-900 dark:text-white transition-colors duration-300">
+
+<!-- Background Effects -->
+<div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-[-1]">
+    <div class="absolute top-[-10%] left-[20%] w-96 h-96 bg-purple-500/20 dark:bg-purple-600/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] animate-pulse"></div>
+    <div class="absolute bottom-[-10%] right-[10%] w-96 h-96 bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] animate-pulse" style="animation-delay: 2s;"></div>
+</div>
+
+<!-- Navbar -->
+<nav class="sticky top-0 z-40 glass-panel px-6 py-4 shadow-sm border-b border-gray-200 dark:border-white/10">
+    <div class="max-w-[1400px] mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-3 select-none">
+            <div class="w-10 h-10 rounded-xl bg-gray-900 dark:bg-white flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-chart-pie text-white dark:text-black text-xl"></i>
+            </div>
+            <h1 class="text-2xl font-black tracking-tight uppercase"><span class="text-gray-900 dark:text-white">Cab</span><span class="text-transparent bg-clip-text bg-gradient-to-r from-[#d4af37] to-[#f3e5ab]">Zila</span> <span class="text-xs font-bold bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 px-2 py-1 rounded tracking-wider ml-1">ADMIN HQ</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="fetchAdminData()" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-white/20 transition-colors" title="Refresh Data"><i class="fa-solid fa-rotate-right"></i></button>
+            <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-white/20 transition-colors"><i id="themeToggleIcon" class="fa-solid fa-moon"></i></button>
+            <button onclick="logout()" class="text-sm font-bold text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-xl"><i class="fa-solid fa-power-off"></i> <span class="hidden md:inline">Exit HQ</span></button>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-8 space-y-8 z-10">
+
+    <!-- Top Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Revenue Card -->
+        <div class="glass-panel rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
+            <div class="flex justify-between items-start mb-4">
+                <div><p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Gross Revenue</p><h3 id="statRevenue" class="text-4xl font-black text-gray-900 dark:text-white mt-1">₹0</h3></div>
+                <div class="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-400 text-xl"><i class="fa-solid fa-wallet"></i></div>
+            </div>
+            <p class="text-xs text-gray-500 font-medium"><i class="fa-solid fa-arrow-trend-up text-green-500 mr-1"></i> From completed rides</p>
+        </div>
+
+        <!-- Total Rides Card -->
+        <div class="glass-panel rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+            <div class="flex justify-between items-start mb-4">
+                <div><p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Bookings</p><h3 id="statTotalRides" class="text-4xl font-black text-gray-900 dark:text-white mt-1">0</h3></div>
+                <div class="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl"><i class="fa-solid fa-route"></i></div>
+            </div>
+            <p class="text-xs text-gray-500 font-medium"><i class="fa-solid fa-globe text-blue-500 mr-1"></i> Lifetime requests</p>
+        </div>
+
+        <!-- Active Rides Card -->
+        <div class="glass-panel rounded-3xl p-6 shadow-xl relative overflow-hidden group border border-transparent dark:border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.1)]">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/20 transition-all"></div>
+            <div class="flex justify-between items-start mb-4">
+                <div><p class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest animate-pulse">Live / Ongoing</p><h3 id="statActiveRides" class="text-4xl font-black text-gray-900 dark:text-white mt-1">0</h3></div>
+                <div class="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center text-red-600 dark:text-red-400 text-xl"><i class="fa-solid fa-satellite-dish animate-pulse"></i></div>
+            </div>
+            <p class="text-xs text-gray-500 font-medium">Currently on the road</p>
+        </div>
+
+        <!-- Discounts Given -->
+        <div class="glass-panel rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all"></div>
+            <div class="flex justify-between items-start mb-4">
+                <div><p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Coins Burned</p><h3 id="statCoinsBurned" class="text-4xl font-black text-goldAccent mt-1">0</h3></div>
+                <div class="w-12 h-12 rounded-2xl bg-yellow-100 dark:bg-yellow-500/20 flex items-center justify-center text-yellow-600 dark:text-goldAccent text-xl"><i class="fa-solid fa-fire"></i></div>
+            </div>
+            <p class="text-xs text-gray-500 font-medium"><i class="fa-solid fa-tag text-goldAccent mr-1"></i> Zila Coins Redeemed</p>
+        </div>
+    </div>
+
+    <!-- Master Data Table -->
+    <div class="glass-panel rounded-3xl p-8 shadow-2xl flex flex-col min-h-[500px]">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gray-900 dark:bg-white/10 flex items-center justify-center"><i class="fa-solid fa-server text-sm text-white dark:text-gray-200"></i></div>
+                Master Logbook
+            </h2>
+
+            <div class="flex gap-2">
+                <select id="statusFilter" onchange="applyFilter()" class="bg-gray-100 dark:bg-black/50 border border-gray-200 dark:border-white/10 text-sm font-semibold rounded-xl px-4 py-2 outline-none focus:border-blue-500">
+                    <option value="ALL">All Statuses</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ONGOING">Ongoing</option>
+                    <option value="REQUESTED">Requested</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                <tr class="bg-gray-100 dark:bg-white/5 border-b border-gray-200 dark:border-white/10 text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                    <th class="p-4 font-bold">Ride ID</th>
+                    <th class="p-4 font-bold">Passenger</th>
+                    <th class="p-4 font-bold">Driver / Car</th>
+                    <th class="p-4 font-bold">Route</th>
+                    <th class="p-4 font-bold text-center">Status</th>
+                    <th class="p-4 font-bold text-right">Fare (₹)</th>
+                    <th class="p-4 font-bold text-center">Discount</th>
+                </tr>
+                </thead>
+                <tbody id="adminTableBody" class="text-sm divide-y divide-gray-200 dark:divide-white/5">
+                <tr><td colspan="7" class="p-10 text-center text-gray-500 font-medium"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i><br>Syncing with Database...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+    function toggleTheme() {
+        document.documentElement.classList.toggle('dark');
+        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const icon = document.getElementById('themeToggleIcon');
+        if(document.documentElement.classList.contains('dark')) { icon.classList.replace('fa-moon', 'fa-sun'); }
+        else { icon.classList.replace('fa-sun', 'fa-moon'); }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const icon = document.getElementById('themeToggleIcon');
+        if(document.documentElement.classList.contains('dark')) icon.classList.replace('fa-moon', 'fa-sun');
+    });
+
+    // API Setup
+    let hostIP = window.location.hostname;
+    if (!hostIP) { hostIP = 'localhost'; }
+    const API_BASE = `http://${hostIP}:8080/api`;
+
+    let allRidesMaster = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Simple Admin Check
+        const userStr = localStorage.getItem('currentUser');
+        if (!userStr) { window.location.href = 'login.html'; return; }
+        const currentUser = JSON.parse(userStr);
+        if(currentUser.role !== 'ADMIN') {
+            alert("Access Denied: Admins Only.");
+            window.location.href = 'login.html';
+            return;
+        }
+
+        fetchAdminData();
+        // Auto refresh every 10 seconds for admin
+        setInterval(fetchAdminData, 10000);
+    });
+
+    function logout() { localStorage.removeItem('currentUser'); window.location.href = 'login.html'; }
+
+    async function fetchAdminData() {
+        try {
+            const res = await fetch(`${API_BASE}/bookings/all?t=${new Date().getTime()}`);
+            if(res.ok) {
+                allRidesMaster = await res.json();
+                updateDashStats(allRidesMaster);
+                applyFilter();
+            }
+        } catch(e) {
+            console.error("Admin Fetch Error:", e);
+        }
+    }
+
+    function updateDashStats(data) {
+        // 1. Total Rides
+        document.getElementById('statTotalRides').innerText = data.length;
+
+        // 2. Gross Revenue (Only Completed Rides)
+        const totalRev = data.filter(r => r.status === 'COMPLETED').reduce((sum, r) => sum + (r.fare || 0), 0);
+        document.getElementById('statRevenue').innerText = `₹${totalRev.toFixed(0)}`;
+
+        // 3. Active Rides (Requested, Accepted, Ongoing)
+        const activeCount = data.filter(r => ['REQUESTED', 'ACCEPTED', 'ONGOING'].includes(r.status)).length;
+        document.getElementById('statActiveRides').innerText = activeCount;
+
+        // 4. Coins Burned (Rides where discount was applied)
+        const discountedRides = data.filter(r => r.coinsUsed === true).length;
+        document.getElementById('statCoinsBurned').innerText = discountedRides * 50; // 50 coins = ₹10 off
+    }
+
+    function applyFilter() {
+        const filterVal = document.getElementById('statusFilter').value;
+        let filteredData = allRidesMaster;
+
+        if (filterVal !== 'ALL') {
+            filteredData = allRidesMaster.filter(r => r.status === filterVal);
+        }
+
+        // Sort by ID descending (newest first)
+        filteredData.sort((a, b) => b.id - a.id);
+        renderTable(filteredData);
+    }
+
+    function renderTable(rides) {
+        const tbody = document.getElementById('adminTableBody');
+
+        if(rides.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500 font-medium">No records found for this filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rides.map(ride => {
+            // Status Styling
+            let statusBadge = '';
+            if (ride.status === 'COMPLETED') statusBadge = `<span class="bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border border-green-200 dark:border-green-500/30">COMPLETED</span>`;
+            else if (ride.status === 'REQUESTED') statusBadge = `<span class="bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border border-yellow-200 dark:border-yellow-500/30">REQUESTED</span>`;
+            else if (ride.status === 'ONGOING' || ride.status === 'ACCEPTED') statusBadge = `<span class="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border border-blue-200 dark:border-blue-500/30 animate-pulse">${ride.status}</span>`;
+            else statusBadge = `<span class="bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider border border-red-200 dark:border-red-500/30">${ride.status}</span>`;
+
+            // Discount styling
+            let discountIcon = ride.coinsUsed ? `<i class="fa-solid fa-check text-green-500 text-lg"></i>` : `<i class="fa-solid fa-minus text-gray-300 dark:text-gray-600"></i>`;
+
+            // Date Formatting (If backend passes createdAt, we format it, else fallback)
+            let dateStr = "N/A";
+            if(ride.createdAt) {
+                const d = new Date(ride.createdAt);
+                dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }
+
+            return `
+                <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                    <td class="p-4 font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                        #${ride.id}
+                        <div class="text-[10px] font-normal text-gray-400 mt-1">${dateStr}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-semibold text-gray-800 dark:text-gray-200">${ride.passengerName || 'Pass_'+ride.passengerId}</div>
+                        <div class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">ID: ${ride.passengerId}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-semibold text-gray-800 dark:text-gray-200">${ride.driverName || '<span class="text-gray-400 italic">Unassigned</span>'}</div>
+                        <div class="text-xs text-gray-500 mt-1">${ride.vehicleType}</div>
+                    </td>
+                    <td class="p-4 max-w-xs">
+                        <div class="flex items-start gap-2">
+                            <div class="flex flex-col items-center pt-1.5 gap-0.5"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div><div class="w-0.5 h-3 bg-gray-300 dark:bg-gray-600"></div><div class="w-1.5 h-1.5 rounded-full bg-red-500"></div></div>
+                            <div class="flex flex-col text-xs text-gray-600 dark:text-gray-300 w-full gap-1">
+                                <span class="truncate" title="${ride.pickupLocation}">${ride.pickupLocation}</span>
+                                <span class="truncate border-t border-gray-100 dark:border-white/10 pt-1" title="${ride.dropoffLocation}">${ride.dropoffLocation}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4 text-center">${statusBadge}</td>
+                    <td class="p-4 text-right font-black text-gray-900 dark:text-white text-lg">₹${ride.fare ? ride.fare.toFixed(0) : '0'}</td>
+                    <td class="p-4 text-center">${discountIcon}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+</script>
+</body>
+</html>
