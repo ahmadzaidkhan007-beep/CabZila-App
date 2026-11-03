@@ -90,10 +90,8 @@
     function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; document.getElementById('themeToggleIcon').classList.replace(document.documentElement.classList.contains('dark') ? 'fa-moon' : 'fa-sun', document.documentElement.classList.contains('dark') ? 'fa-sun' : 'fa-moon'); }
     document.addEventListener('DOMContentLoaded', () => { if(document.documentElement.classList.contains('dark')) document.getElementById('themeToggleIcon').classList.replace('fa-moon', 'fa-sun'); });
 
-    let hostIP = window.location.hostname;
-    if (!hostIP) { hostIP = 'localhost'; }
-    const API_BASE = `http://${hostIP}:8080/api`;
-    const WS_URL = `http://${hostIP}:8080/ws-chat`;
+    const API_BASE = `https://cabzila-app.onrender.com/api`;
+    const WS_URL = `https://cabzila-app.onrender.com/ws-chat`;
 
     let currentUser = null, driverId = null;
     let hiddenRadarRides = JSON.parse(localStorage.getItem('cabzila_declined_rides') || '[]').map(Number);
