@@ -3,6 +3,7 @@ package tech.codehunt.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +23,9 @@ public class UserService {
 
     @Autowired
     private UserDao userDao;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Transactional
     public User registerUser(UserRequestDto request) {
@@ -56,7 +60,10 @@ public class UserService {
         User user = new User();
         user.setName(request.getName().trim());
         user.setEmail(email);
-        user.setPassword(request.getPassword());
+
+        // UPDATE: Password ko database me save karne se pehle encrypt (hash) kar diya hai
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+
         user.setRole(role);
 
         try {
@@ -72,7 +79,9 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email and password are required");
         }
         User user = userDao.findByEmail(email.trim().toLowerCase());
-        if (user != null && user.getPassword().equals(password)) {
+
+        // UPDATE: Plain text password ko encrypted wale password ke sath match karne ke liye matches() use kiya hai
+        if (user != null && passwordEncoder.matches(password, user.getPassword())) {
             return user;
         }
         return null;
