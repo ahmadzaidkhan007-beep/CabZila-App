@@ -74,16 +74,30 @@ public class UserService {
         }
     }
 
+    // UPDATE: Debugging ke liye jasoos (print statements) laga diye hain
     public User loginUser(String email, String password) {
+        System.out.println("=== LOGIN API CALLED ===");
+        System.out.println("Email received: " + email);
+        System.out.println("Raw Password received: " + password);
+
         if (email == null || password == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email and password are required");
         }
         User user = userDao.findByEmail(email.trim().toLowerCase());
 
-        // UPDATE: Plain text password ko encrypted wale password ke sath match karne ke liye matches() use kiya hai
-        if (user != null && passwordEncoder.matches(password, user.getPassword())) {
-            return user;
+        if (user != null) {
+            System.out.println("User found in DB! DB Encrypted pass: " + user.getPassword());
+            boolean isMatch = passwordEncoder.matches(password, user.getPassword());
+            System.out.println("Did password match? : " + isMatch);
+
+            if (isMatch) {
+                return user;
+            }
+        } else {
+            System.out.println("User NOT found in DB!");
         }
+
+        System.out.println("Login Failed: Returning null");
         return null;
     }
 
