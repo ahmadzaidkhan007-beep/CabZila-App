@@ -190,11 +190,8 @@
         if(document.documentElement.classList.contains('dark')) icon.classList.replace('fa-moon', 'fa-sun');
     });
 
-    let hostIP = window.location.hostname;
-    if (!hostIP) { hostIP = 'localhost'; }
-
-    const API_BASE = `http://${hostIP}:8080/api`;
-    const WS_URL = `http://${hostIP}:8080/ws-chat`;
+    const API_BASE = `https://cabzila-app.onrender.com/api`;
+    const WS_URL = `https://cabzila-app.onrender.com/ws-chat`;
 
     let currentUser = null, passengerId = null, ratingRideId = null, selectedStars = 0;
     let map, pickupCoords = null, dropoffCoords = null, pMarker = null, dMarker = null, routeLine = null;
