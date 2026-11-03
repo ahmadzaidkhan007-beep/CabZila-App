@@ -7,7 +7,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -23,44 +23,274 @@
     </script>
 
     <style>
-        body { background: #0a0a0a; color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-
-        /* Ambient Glow */
-        .ambient::before {
-            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-            background: radial-gradient(40rem 40rem at 50% 10%, rgba(201,169,110,0.08), transparent 60%);
+        :root {
+            --gold: #c9a96e;
+            --gold-bright: #e6cc96;
+            --gold-deep: #a8854a;
+            --ink: #07070a;
         }
 
-        /* Glass Card */
+        * { -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: var(--ink);
+            color: white;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ---------- Ambient background (GPU accelerated) ---------- */
+        .ambient-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+            background:
+                radial-gradient(120% 80% at 50% -10%, rgba(201,169,110,0.10), transparent 60%),
+                var(--ink);
+        }
+        .orb {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(90px);
+            opacity: 0.55;
+            will-change: transform;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+        .orb-1 {
+            width: 46vmax; height: 46vmax;
+            top: -18vmax; right: -12vmax;
+            background: radial-gradient(circle, rgba(201,169,110,0.55), transparent 65%);
+            animation: drift-1 22s ease-in-out infinite alternate;
+        }
+        .orb-2 {
+            width: 40vmax; height: 40vmax;
+            bottom: -20vmax; left: -10vmax;
+            background: radial-gradient(circle, rgba(168,133,74,0.40), transparent 65%);
+            animation: drift-2 28s ease-in-out infinite alternate;
+        }
+        .orb-3 {
+            width: 28vmax; height: 28vmax;
+            top: 40%; left: 12%;
+            background: radial-gradient(circle, rgba(120,140,255,0.16), transparent 65%);
+            animation: drift-3 34s ease-in-out infinite alternate;
+        }
+        @keyframes drift-1 { from { transform: translate3d(0,0,0) scale(1); }   to { transform: translate3d(-9vmax, 7vmax, 0) scale(1.15); } }
+        @keyframes drift-2 { from { transform: translate3d(0,0,0) scale(1.1); } to { transform: translate3d(8vmax, -6vmax, 0) scale(0.95); } }
+        @keyframes drift-3 { from { transform: translate3d(0,0,0) scale(1); }   to { transform: translate3d(10vmax, 5vmax, 0) scale(1.2); } }
+
+        .grain {
+            position: absolute; inset: 0;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* ---------- Glass card ---------- */
         .glass {
-            background: rgba(255,255,255,0.03); backdrop-filter: blur(16px);
-            border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            position: relative;
+            background: linear-gradient(160deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.035) 100%);
+            -webkit-backdrop-filter: blur(28px) saturate(150%);
+            backdrop-filter: blur(28px) saturate(150%);
+            border: 1px solid rgba(255,255,255,0.09);
+            box-shadow:
+                0 30px 80px -20px rgba(0,0,0,0.75),
+                0 0 0 1px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.12),
+                inset 0 0 40px rgba(201,169,110,0.025);
+            animation: card-in 0.8s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .glass::before {                    /* gold hairline that fades around the edge */
+            content: "";
+            position: absolute; inset: -1px;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(145deg, rgba(230,204,150,0.55), rgba(201,169,110,0.06) 30%, rgba(255,255,255,0.03) 60%, rgba(201,169,110,0.35));
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        @keyframes card-in {
+            from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.985); }
+            to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
         }
 
-        /* Inputs */
-        .field label { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 6px; letter-spacing: 1px; }
+        /* ---------- Brand mark ---------- */
+        .brand-mark {
+            background: linear-gradient(145deg, rgba(230,204,150,0.22), rgba(201,169,110,0.06));
+            border: 1px solid rgba(201,169,110,0.35);
+            box-shadow: 0 0 0 6px rgba(201,169,110,0.05), 0 10px 30px -8px rgba(201,169,110,0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+
+        /* ---------- Field labels (direct child only, so role cards keep their own style) ---------- */
+        .field > label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 8px;
+            margin-left: 4px;
+        }
+
+        /* ---------- Inputs ---------- */
+        .control { position: relative; }
+        .control > i {
+            position: absolute; left: 16px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: rgba(255,255,255,0.32);
+            transition: color 0.3s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .control:focus-within > i { color: var(--gold); }
+
         .input-control {
-            width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px; padding: 12px 16px; color: white; outline: none; transition: all 0.3s ease;
+            width: 100%;
+            background: rgba(6,6,10,0.55);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 14px 16px 14px 44px;
+            font-size: 15px;
+            color: white;
+            outline: none;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.35);
+            transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
         }
-        .input-control:focus { border-color: #c9a96e; background: rgba(255,255,255,0.07); }
+        .input-control::placeholder { color: rgba(255,255,255,0.28); }
+        .input-control:hover { border-color: rgba(255,255,255,0.16); }
+        .input-control:focus {
+            border-color: rgba(201,169,110,0.75);
+            background: rgba(10,10,14,0.75);
+            box-shadow:
+                inset 0 2px 6px rgba(0,0,0,0.3),
+                0 0 0 4px rgba(201,169,110,0.12),
+                0 0 24px -2px rgba(201,169,110,0.28);
+        }
+        .input-control:-webkit-autofill,
+        .input-control:-webkit-autofill:focus {
+            -webkit-text-fill-color: #fff;
+            caret-color: #fff;
+            -webkit-box-shadow: 0 0 0 1000px #0b0b10 inset, 0 0 0 4px rgba(201,169,110,0.12);
+            transition: background-color 9999s ease-out 0s;
+        }
 
-        /* Role Selection Radios */
-        .role-radio:checked + div { border-color: #c9a96e; background: rgba(201,169,110,0.1); color: #c9a96e; }
+        /* Select: custom chevron, dark menu */
+        select.input-control {
+            appearance: none; -webkit-appearance: none;
+            cursor: pointer;
+            padding-right: 44px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c9a96e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            color-scheme: dark;
+        }
+        select.input-control option { background: #12121a; color: #fff; }
+
+        /* ---------- Role selection ---------- */
+        .role-card {
+            border: 1px solid rgba(255,255,255,0.09);
+            background: rgba(6,6,10,0.45);
+            color: rgba(255,255,255,0.55);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+            transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+        }
+        label:hover > .role-card { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.8); }
+        .role-radio:checked + .role-card {
+            border-color: rgba(201,169,110,0.75);
+            background: linear-gradient(160deg, rgba(201,169,110,0.16), rgba(201,169,110,0.05));
+            color: var(--gold-bright);
+            box-shadow: 0 0 0 4px rgba(201,169,110,0.10), 0 8px 24px -10px rgba(201,169,110,0.4);
+        }
+        .role-radio:focus-visible + .role-card { outline: 2px solid #fff; outline-offset: 3px; }
+
+        /* Driver section animates in when JS removes .hidden (transform/opacity only) */
+        #driverFields { animation: fields-in 0.4s cubic-bezier(.2,.8,.2,1) both; }
+        @keyframes fields-in {
+            from { opacity: 0; transform: translate3d(0, -8px, 0); }
+            to   { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+
+        /* ---------- Primary button ---------- */
+        .btn-gold {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 15px;
+            letter-spacing: 0.01em;
+            color: #17120a;
+            background: linear-gradient(135deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%);
+            box-shadow:
+                0 12px 30px -8px rgba(201,169,110,0.55),
+                0 0 0 1px rgba(255,255,255,0.12) inset,
+                0 1px 0 rgba(255,255,255,0.45) inset;
+            transition: transform 0.3s cubic-bezier(.2,.8,.2,1), box-shadow 0.3s ease, filter 0.3s ease;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+        .btn-gold::before {
+            content: "";
+            position: absolute; top: 0; bottom: 0; left: -60%;
+            width: 40%;
+            background: linear-gradient(105deg, transparent, rgba(255,255,255,0.55), transparent);
+            transform: skewX(-18deg) translate3d(0,0,0);
+            transition: left 0.7s ease;
+            pointer-events: none;
+        }
+        .btn-gold:hover:not(:disabled) {
+            transform: translate3d(0,-2px,0);
+            filter: brightness(1.06);
+            box-shadow:
+                0 18px 40px -8px rgba(201,169,110,0.75),
+                0 0 30px rgba(201,169,110,0.3),
+                0 0 0 1px rgba(255,255,255,0.18) inset,
+                0 1px 0 rgba(255,255,255,0.5) inset;
+        }
+        .btn-gold:hover:not(:disabled)::before { left: 130%; }
+        .btn-gold:active:not(:disabled) { transform: translate3d(0,0,0) scale(0.985); }
+        .btn-gold:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+        .btn-gold:disabled { cursor: progress; filter: saturate(0.7) brightness(0.9); opacity: 0.85; }
+
+        a.link-gold { color: var(--gold); font-weight: 600; transition: color 0.25s ease; }
+        a.link-gold:hover { color: #fff; }
+        a.link-gold:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 4px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .orb, .glass, #driverFields { animation: none !important; }
+            .btn-gold, .btn-gold::before { transition: none; }
+        }
     </style>
 </head>
-<body class="ambient antialiased p-4">
+<body class="antialiased p-4 py-8">
 
-<div class="glass max-w-md w-full p-8 rounded-2xl relative overflow-hidden">
+<!-- Ambient background -->
+<div class="ambient-bg" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grain"></div>
+</div>
+
+<div class="glass max-w-md w-full p-8 sm:p-10 rounded-[28px] relative overflow-hidden">
     <!-- Top Accent Line -->
-    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-50"></div>
+    <div class="absolute top-0 left-[12%] right-[12%] h-px bg-gradient-to-r from-transparent via-gold to-transparent opacity-80"></div>
 
-    <div class="text-center mb-8 pt-2">
-      <span class="w-12 h-12 rounded-xl mx-auto flex items-center justify-center border border-gold/30 bg-gold/10 mb-4">
-        <i class="fa-solid fa-user-plus text-xl text-gold"></i>
+    <div class="text-center mb-8 pt-1">
+      <span class="brand-mark w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-6">
+        <i class="fa-solid fa-user-plus text-2xl text-gold"></i>
       </span>
-        <h1 class="text-2xl font-bold tracking-tight">Join <span class="text-gold">CabZila</span></h1>
-        <p class="text-sm text-white/50 mt-1">Create your account to get started</p>
+        <h1 class="text-[1.75rem] sm:text-3xl font-extrabold tracking-tight">Join <span class="text-gold">CabZila</span></h1>
+        <p class="text-sm text-white/50 mt-2.5">Create your account to get started</p>
     </div>
 
     <form id="registerForm" class="space-y-5">
@@ -68,62 +298,77 @@
         <!-- Role Selection -->
         <div class="field">
             <label>I want to register as</label>
-            <div class="grid grid-cols-2 gap-4 mt-2">
-                <label class="cursor-pointer">
-                    <input type="radio" name="role" value="PASSENGER" class="role-radio hidden" checked onchange="toggleDriverFields()">
-                    <div class="text-center p-3 rounded-xl border border-white/10 text-white/60 transition-all duration-300 flex flex-col items-center gap-2">
+            <div class="grid grid-cols-2 gap-3 mt-2">
+                <label class="cursor-pointer block">
+                    <input type="radio" name="role" value="PASSENGER" class="role-radio sr-only" checked onchange="toggleDriverFields()">
+                    <div class="role-card text-center p-4 rounded-2xl flex flex-col items-center gap-2">
                         <i class="fa-solid fa-user text-lg"></i>
-                        <span class="text-sm font-medium">Passenger</span>
+                        <span class="text-sm font-semibold">Passenger</span>
                     </div>
                 </label>
-                <label class="cursor-pointer">
-                    <input type="radio" name="role" value="DRIVER" class="role-radio hidden" onchange="toggleDriverFields()">
-                    <div class="text-center p-3 rounded-xl border border-white/10 text-white/60 transition-all duration-300 flex flex-col items-center gap-2">
+                <label class="cursor-pointer block">
+                    <input type="radio" name="role" value="DRIVER" class="role-radio sr-only" onchange="toggleDriverFields()">
+                    <div class="role-card text-center p-4 rounded-2xl flex flex-col items-center gap-2">
                         <i class="fa-solid fa-dharmachakra text-lg"></i>
-                        <span class="text-sm font-medium">Driver</span>
+                        <span class="text-sm font-semibold">Driver</span>
                     </div>
                 </label>
             </div>
         </div>
 
         <div class="field">
-            <label>Full Name</label>
-            <input type="text" id="name" class="input-control" placeholder="Enter your full name" required>
+            <label for="name">Full name</label>
+            <div class="control">
+                <i class="fa-regular fa-user"></i>
+                <input type="text" id="name" class="input-control" placeholder="Enter your full name" autocomplete="name" required>
+            </div>
         </div>
 
         <div class="field">
-            <label>Email Address</label>
-            <input type="email" id="email" class="input-control" placeholder="name@example.com" required>
+            <label for="email">Email address</label>
+            <div class="control">
+                <i class="fa-regular fa-envelope"></i>
+                <input type="email" id="email" class="input-control" placeholder="name@example.com" autocomplete="email" required>
+            </div>
         </div>
 
         <div class="field">
-            <label>Password</label>
-            <input type="password" id="password" class="input-control" placeholder="Create a strong password" required>
+            <label for="password">Password</label>
+            <div class="control">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="password" class="input-control" placeholder="Create a strong password" autocomplete="new-password" required>
+            </div>
         </div>
 
         <!-- Driver Specific Fields (Hidden initially) -->
-        <div id="driverFields" class="hidden space-y-5 pt-3 border-t border-white/10">
+        <div id="driverFields" class="hidden space-y-5 pt-5 border-t border-white/10">
             <div class="field">
-                <label>Vehicle Type</label>
-                <select id="vehicleType" class="input-control text-white/90">
-                    <option value="SEDAN" class="text-black">Sedan</option>
-                    <option value="SUV" class="text-black">SUV</option>
-                    <option value="AUTO" class="text-black">Auto Rickshaw</option>
-                    <option value="BIKE" class="text-black">Bike</option>
-                </select>
+                <label for="vehicleType">Vehicle type</label>
+                <div class="control">
+                    <i class="fa-solid fa-car-side"></i>
+                    <select id="vehicleType" class="input-control text-white/90">
+                        <option value="SEDAN" class="text-black">Sedan</option>
+                        <option value="SUV" class="text-black">SUV</option>
+                        <option value="AUTO" class="text-black">Auto Rickshaw</option>
+                        <option value="BIKE" class="text-black">Bike</option>
+                    </select>
+                </div>
             </div>
             <div class="field">
-                <label>Vehicle Registration Number</label>
-                <input type="text" id="vehicleNumber" class="input-control" placeholder="e.g. DL 1C AB 1234">
+                <label for="vehicleNumber">Vehicle registration number</label>
+                <div class="control">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <input type="text" id="vehicleNumber" class="input-control" placeholder="e.g. DL 1C AB 1234">
+                </div>
             </div>
         </div>
 
-        <button type="submit" id="submitBtn" class="w-full font-semibold py-3.5 rounded-xl mt-4 transition-all duration-300 hover:-translate-y-1" style="background:#c9a96e; color:#0a0a0a; box-shadow: 0 10px 20px -10px rgba(201,169,110,0.5);">
+        <button type="submit" id="submitBtn" class="btn-gold mt-3">
             Create Account
         </button>
 
-        <p class="text-center text-sm text-white/40 mt-6">
-            Already have an account? <a href="login.html" class="text-gold hover:text-white transition-colors">Sign in</a>
+        <p class="text-center text-sm text-white/40 pt-3">
+            Already have an account? <a href="login.html" class="link-gold">Sign in</a>
         </p>
     </form>
 </div>
@@ -169,8 +414,8 @@
 
         try {
             // YAHAN AAPKE SPRING BOOT BACKEND KA URL AAYEGA
-            // Example: http://localhost:8080/api/users/register
-            const response = await fetch('http://localhost:8080/api/users/register', {
+            // Example: https://cabzila-app.onrender.com/api/users/register
+            const response = await fetch('https://cabzila-app.onrender.com/api/users/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
